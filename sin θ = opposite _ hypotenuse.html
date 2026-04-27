@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<!-- saved from url=(0056)file:///C:/Users/ryanv/Downloads/sin_ratio_triangle.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>sin θ = opposite / hypotenuse</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #fff; color: #3d3d3a; padding: 2rem; }
+  @media (prefers-color-scheme: dark) { body { background: #1a1a18; color: #c2c0b6; } }
+
+  h1 { font-size: 22px; font-weight: 500; text-align: center; margin-bottom: 1.5rem; }
+
+  .main-layout { display: flex; gap: 32px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  .canvas-col { flex: 1; min-width: 340px; max-width: 700px; }
+  canvas { display: block; width: 100%; height: auto; }
+
+  .panel { display: flex; flex-direction: column; gap: 14px; width: 220px; flex-shrink: 0; }
+
+  .ratio-display { background: #f1efe8; border-radius: 12px; padding: 20px; text-align: center; }
+  @media (prefers-color-scheme: dark) { .ratio-display { background: #2c2c2a; } }
+  .ratio-label { font-size: 13px; color: #888; margin-bottom: 8px; }
+  .ratio-formula { font-size: 24px; font-weight: 500; }
+  .ratio-eq { font-size: 18px; color: #888; margin-top: 6px; }
+  .ratio-value { font-size: 44px; font-weight: 500; color: #E8593C; margin-top: 6px; line-height: 1.1; }
+
+  .side-card { background: #f1efe8; border-radius: 8px; padding: 14px 18px; }
+  @media (prefers-color-scheme: dark) { .side-card { background: #2c2c2a; } }
+  .side-label { font-size: 14px; color: #888; margin-bottom: 4px; }
+  .side-val { font-size: 28px; font-weight: 500; }
+
+  .controls { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .ctrl-row { display: flex; align-items: center; gap: 12px; }
+  .ctrl-label { font-size: 15px; color: #888; white-space: nowrap; min-width: 100px; }
+  input[type=range] { flex: 1; height: 4px; accent-color: #E8593C; }
+  .ctrl-out { font-size: 15px; font-weight: 500; min-width: 52px; text-align: right; }
+  button {
+    font-size: 14px; padding: 6px 20px;
+    border-radius: 8px; border: 1px solid #ccc;
+    background: #fff; cursor: pointer; color: #555; white-space: nowrap;
+  }
+  @media (prefers-color-scheme: dark) { button { background: #2c2c2a; border-color: #555; color: #aaa; } }
+  button.active { background: #E8593C; color: #fff; border-color: #E8593C; }
+</style>
+</head>
+<body>
+<h1>sin θ = opposite / hypotenuse</h1>
+<div class="main-layout">
+  <div class="canvas-col"><canvas id="tri" width="875" height="683" style="width: 700px; height: 546px;"></canvas></div>
+  <div class="panel">
+    <div class="ratio-display">
+      <div class="ratio-label">trigonometric ratio</div>
+      <div class="ratio-formula">sin θ = o / h</div>
+      <div class="ratio-eq" id="eq">= 4.450 / 8.90</div>
+      <div class="ratio-value" id="sinval">0.5000</div>
+    </div>
+    <div class="side-card">
+      <div class="side-label">opposite (o)</div>
+      <div class="side-val" id="oppval">4.450</div>
+    </div>
+    <div class="side-card">
+      <div class="side-label">hypotenuse (h)</div>
+      <div class="side-val" id="hypval">8.90</div>
+    </div>
+  </div>
+</div>
+<div class="controls">
+  <div class="ctrl-row">
+    <span class="ctrl-label">θ (angle)</span>
+    <input type="range" id="tslider" min="1" max="89" value="30" step="1">
+    <span class="ctrl-out" id="tval">30°</span>
+    <button id="animBtn" onclick="toggleAnim()">animate</button>
+  </div>
+  <div class="ctrl-row">
+    <span class="ctrl-label">hyp size</span>
+    <input type="range" id="hslider" min="1" max="10" value="1" step="0.1">
+    <span class="ctrl-out" id="hval">8.9</span>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('tri');
+const ctx = canvas.getContext('2d');
+const tSlider = document.getElementById('tslider');
+const hSlider = document.getElementById('hslider');
+let animating=false, animDir=1, animAngle=30, rafId=null;
+let curDeg=30, curHyp=1;
+let CW=600, CH=468; // canvas CSS dimensions
+
+function isDark(){ return window.matchMedia('(prefers-color-scheme: dark)').matches; }
+
+function setupCanvas(){
+  const col = canvas.parentElement;
+  CW = col.clientWidth || 600;
+  CH = Math.round(CW * 0.78);
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = Math.round(CW * dpr);
+  canvas.height = Math.round(CH * dpr);
+  canvas.style.width  = CW + 'px';
+  canvas.style.height = CH + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function draw(deg, hypScale){
+  ctx.clearRect(0, 0, CW, CH);
+  const rad    = deg * Math.PI / 180;
+  const sinVal = Math.sin(rad);
+  const cosVal = Math.cos(rad);
+
+  // Triangle hyp pixel length: 52–68% of canvas width
+  const hypPix = CW * (0.52 + ((hypScale-1)/9) * 0.16);
+  const adjPix = hypPix * cosVal;
+  const oppPix = hypPix * sinVal;
+  const oppLen = sinVal * hypScale;
+
+  // Anchor origin bottom-left
+  const originX = CW * 0.08;
+  const originY = CH * 0.83;
+  const footX   = originX + adjPix;
+  const footY   = originY;
+  const tipX    = footX;
+  const tipY    = originY - oppPix;
+
+  // Font size = 3.8% of canvas width — always proportional and visible
+  const FS = Math.round(CW * 0.038);
+
+  const oppColor  = '#E8593C';
+  const hypColor  = isDark() ? '#9c9a92' : '#888780';
+  const faint     = isDark() ? 'rgba(232,89,60,0.10)' : 'rgba(232,89,60,0.06)';
+  const baseFaint = isDark() ? 'rgba(180,178,169,0.22)' : 'rgba(60,58,55,0.13)';
+  const rmColor   = isDark() ? 'rgba(180,178,169,0.5)'  : 'rgba(60,58,55,0.38)';
+
+  // Triangle fill
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(originX,originY); ctx.lineTo(tipX,tipY); ctx.lineTo(footX,footY);
+  ctx.closePath(); ctx.fillStyle=faint; ctx.fill();
+  ctx.restore();
+
+  // Dashed base
+  ctx.save();
+  ctx.strokeStyle=baseFaint; ctx.lineWidth=1.5; ctx.setLineDash([6,5]);
+  ctx.beginPath(); ctx.moveTo(originX,originY); ctx.lineTo(footX,footY); ctx.stroke();
+  ctx.restore();
+
+  // Hypotenuse
+  ctx.save();
+  ctx.strokeStyle=hypColor; ctx.lineWidth=2.5; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(originX,originY); ctx.lineTo(tipX,tipY); ctx.stroke();
+  ctx.restore();
+
+  // Hyp label rotated along hyp
+  const hypMidX=(originX+tipX)/2, hypMidY=(originY+tipY)/2;
+  const hypAng=Math.atan2(tipY-originY, tipX-originX);
+  ctx.save();
+  ctx.translate(hypMidX,hypMidY); ctx.rotate(hypAng);
+  ctx.font=`bold ${FS}px system-ui,sans-serif`;
+  ctx.fillStyle=hypColor; ctx.textAlign='center';
+  ctx.fillText('h = '+hypScale.toFixed(2), 0, -FS*0.45);
+  ctx.restore();
+
+  // Opposite
+  ctx.save();
+  ctx.strokeStyle=oppColor; ctx.lineWidth=4; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(footX,footY); ctx.lineTo(tipX,tipY); ctx.stroke();
+  ctx.restore();
+
+  // Opp label — right of vertical
+  ctx.font=`bold ${FS}px system-ui,sans-serif`;
+  ctx.fillStyle=oppColor; ctx.textAlign='left';
+  ctx.fillText('o = '+oppLen.toFixed(3), footX+FS*0.4, footY-oppPix/2+FS*0.38);
+
+  // Right angle marker
+  const rm = FS * 0.55;
+  ctx.save();
+  ctx.strokeStyle=rmColor; ctx.lineWidth=1.5; ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(footX-rm,footY); ctx.lineTo(footX-rm,footY-rm); ctx.lineTo(footX,footY-rm);
+  ctx.stroke(); ctx.restore();
+
+  // Theta arc — inside triangle
+  const arcR = Math.min(adjPix * 0.28, FS * 2.2);
+  ctx.save();
+  ctx.strokeStyle=oppColor; ctx.lineWidth=2; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.arc(originX,originY,arcR,-rad,0,false); ctx.stroke();
+  ctx.restore();
+
+  // Theta label — inside triangle, along bisector of the angle
+  const tMid = -rad/2;
+  const tLR  = arcR + FS * 1.2;
+  ctx.font=`bold ${FS}px system-ui,sans-serif`;
+  ctx.fillStyle=oppColor; ctx.textAlign='left';
+  ctx.fillText('θ = '+deg+'°', originX+tLR*Math.cos(tMid), originY+tLR*Math.sin(tMid)+FS*0.35);
+
+  // Tip dot
+  ctx.beginPath(); ctx.arc(tipX,tipY,FS*0.28,0,2*Math.PI); ctx.fillStyle=oppColor; ctx.fill();
+
+  // Update panel
+  document.getElementById('sinval').textContent = sinVal.toFixed(4);
+  document.getElementById('eq').textContent     = '= '+oppLen.toFixed(3)+' / '+hypScale.toFixed(2);
+  document.getElementById('oppval').textContent  = oppLen.toFixed(3);
+  document.getElementById('hypval').textContent  = hypScale.toFixed(2);
+  document.getElementById('tval').textContent    = deg+'°';
+  document.getElementById('hval').textContent    = hypScale.toFixed(1);
+}
+
+function toggleAnim(){
+  animating = !animating;
+  document.getElementById('animBtn').className = animating ? 'active' : '';
+  if(animating) animate(); else cancelAnimationFrame(rafId);
+}
+function animate(){
+  animAngle += animDir * 0.5;
+  if(animAngle>=89){animAngle=89;animDir=-1;}
+  if(animAngle<=1) {animAngle=1; animDir= 1;}
+  curDeg = Math.round(animAngle);
+  tSlider.value = curDeg;
+  draw(curDeg, curHyp);
+  if(animating) rafId = requestAnimationFrame(animate);
+}
+
+tSlider.addEventListener('input',()=>{ if(animating)toggleAnim(); curDeg=parseInt(tSlider.value); draw(curDeg,curHyp); });
+hSlider.addEventListener('input',()=>{ curHyp=parseFloat(hSlider.value); draw(curDeg,curHyp); });
+window.addEventListener('resize',()=>{ setupCanvas(); draw(curDeg,curHyp); });
+
+setupCanvas();
+draw(30,1);
+</script>
+
+
+</body></html>
